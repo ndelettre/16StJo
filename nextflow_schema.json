@@ -1,0 +1,170 @@
+{
+    "$schema": "http://json-schema.org/draft-07/schema",
+    "$id": "https://raw.githubusercontent.com/ndelettre/16StJo/main/nextflow_schema.json",
+    "title": "16StJo pipeline parameters",
+    "description": "Pipeline 16S Nanopore (chopper, NanoPlot, Emu) multi-bases - compatible EPI2ME",
+    "type": "object",
+    "definitions": {
+        "input_output_options": {
+            "title": "Entrées / Sorties",
+            "type": "object",
+            "fa_icon": "fas fa-terminal",
+            "description": "Définir les chemins d'entrée et de sortie du pipeline.",
+            "required": ["fastq_dir"],
+            "properties": {
+                "fastq_dir": {
+                    "type": "string",
+                    "format": "directory-path",
+                    "description": "Dossier FASTQ : soit un fichier par échantillon, soit un sous-dossier par barcode (ex : fastq_pass de MinKNOW avec barcode01/, barcode02/...).",
+                    "fa_icon": "fas fa-folder-open"
+                },
+                "sample_sheet": {
+                    "type": "string",
+                    "format": "file-path",
+                    "description": "Optionnel : CSV avec les colonnes 'barcode' et 'alias'. Seuls les barcodes listés sont analysés, renommés avec leur alias.",
+                    "fa_icon": "fas fa-table"
+                },
+                "include_unclassified": {
+                    "type": "boolean",
+                    "description": "Analyser aussi le sous-dossier 'unclassified' de MinKNOW (reads sans barcode).",
+                    "default": false,
+                    "fa_icon": "fas fa-question-circle"
+                },
+                "outdir": {
+                    "type": "string",
+                    "format": "directory-path",
+                    "description": "Dossier de sortie du rapport HTML.",
+                    "default": "output",
+                    "fa_icon": "fas fa-folder"
+                },
+                "resultsdir": {
+                    "type": "string",
+                    "format": "directory-path",
+                    "description": "Dossier de sortie des fichiers intermédiaires (reads filtrés, NanoPlot, tables Emu).",
+                    "default": "results",
+                    "fa_icon": "fas fa-folder"
+                }
+            }
+        },
+        "filtering_options": {
+            "title": "Filtrage des reads (chopper)",
+            "type": "object",
+            "fa_icon": "fas fa-filter",
+            "description": "Paramètres de filtrage chopper. Valeurs par défaut adaptées au 16S complet (~1 500 pb).",
+            "properties": {
+                "min_quality": {
+                    "type": "integer",
+                    "description": "Qualité moyenne minimale des reads (Q-score Phred).",
+                    "default": 10,
+                    "minimum": 0,
+                    "maximum": 40,
+                    "fa_icon": "fas fa-signal"
+                },
+                "min_length": {
+                    "type": "integer",
+                    "description": "Longueur minimale des reads (pb).",
+                    "default": 1200,
+                    "minimum": 1,
+                    "fa_icon": "fas fa-ruler-horizontal"
+                },
+                "max_length": {
+                    "type": "integer",
+                    "description": "Longueur maximale des reads (pb).",
+                    "default": 1800,
+                    "minimum": 1,
+                    "fa_icon": "fas fa-ruler-horizontal"
+                },
+                "chopper_args": {
+                    "type": "string",
+                    "description": "Options supplémentaires passées à chopper (ex : '--maxqual 40').",
+                    "default": "",
+                    "fa_icon": "fas fa-terminal"
+                },
+                "min_reads": {
+                    "type": "integer",
+                    "description": "Nombre minimal de reads après filtrage pour classer un échantillon avec Emu (les autres restent visibles dans le QC).",
+                    "default": 50,
+                    "minimum": 1,
+                    "fa_icon": "fas fa-sort-numeric-up"
+                }
+            }
+        },
+        "emu_options": {
+            "title": "Classification Emu",
+            "type": "object",
+            "fa_icon": "fas fa-database",
+            "description": "Choix des bases de données et paramètres d'Emu.",
+            "required": ["emu_db_dir", "emu_dbs"],
+            "properties": {
+                "emu_db_dir": {
+                    "type": "string",
+                    "format": "directory-path",
+                    "description": "Dossier contenant les bases Emu, une par sous-dossier (chacune avec species_taxid.fasta et taxonomy.tsv).",
+                    "default": "/data/emu_db",
+                    "fa_icon": "fas fa-folder-open"
+                },
+                "emu_dbs": {
+                    "type": "string",
+                    "description": "Base(s) à utiliser, séparées par des virgules : noms de sous-dossiers de emu_db_dir (ex : 'emu,silva,rdp') ou chemins complets. Avec plusieurs bases, le rapport les compare.",
+                    "default": "emu",
+                    "fa_icon": "fas fa-layer-group"
+                },
+                "emu_min_abundance": {
+                    "type": "number",
+                    "description": "Abondance relative minimale d'une espèce (--min-abundance d'Emu).",
+                    "default": 0.0001,
+                    "minimum": 0,
+                    "maximum": 1,
+                    "fa_icon": "fas fa-percentage"
+                },
+                "emu_N": {
+                    "type": "integer",
+                    "description": "Nombre maximal d'alignements secondaires minimap2 par read (--N). Le diminuer réduit la RAM.",
+                    "default": 50,
+                    "minimum": 1,
+                    "fa_icon": "fas fa-sliders-h"
+                },
+                "emu_args": {
+                    "type": "string",
+                    "description": "Options supplémentaires passées à 'emu abundance' (ex : '--min-pid 90').",
+                    "default": "",
+                    "fa_icon": "fas fa-terminal"
+                },
+                "emu_combine_ranks": {
+                    "type": "string",
+                    "description": "Rangs des tables multi-échantillons (emu combine-outputs), séparés par des virgules : species, genus, family, order, class, phylum, superkingdom, tax_id.",
+                    "default": "species,genus",
+                    "fa_icon": "fas fa-table"
+                }
+            }
+        },
+        "report_options": {
+            "title": "Rapport",
+            "type": "object",
+            "fa_icon": "fas fa-chart-bar",
+            "description": "Options du rapport HTML.",
+            "properties": {
+                "report_title": {
+                    "type": "string",
+                    "description": "Titre du rapport HTML.",
+                    "default": "Analyse 16S Nanopore - Emu",
+                    "fa_icon": "fas fa-heading"
+                },
+                "report_top_n": {
+                    "type": "integer",
+                    "description": "Nombre de taxons affichés dans les graphiques de composition (les autres sont regroupés).",
+                    "default": 15,
+                    "minimum": 1,
+                    "maximum": 30,
+                    "fa_icon": "fas fa-list-ol"
+                }
+            }
+        }
+    },
+    "allOf": [
+        { "$ref": "#/definitions/input_output_options" },
+        { "$ref": "#/definitions/filtering_options" },
+        { "$ref": "#/definitions/emu_options" },
+        { "$ref": "#/definitions/report_options" }
+    ]
+}
