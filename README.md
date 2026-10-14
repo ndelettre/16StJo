@@ -1,4 +1,4 @@
-# 16StJo
+# ARN16StJo
 
 Pipeline Nextflow d'analyse du **16S full-length** séquencé sur **Oxford Nanopore** (R10.4.1), avec classification taxonomique par [EMU](https://github.com/treangenlab/emu) — compatible **EPI2ME Desktop**.
 
@@ -35,13 +35,13 @@ FASTQ ─┬─ NANOSTAT (reads bruts)
 ### Via EPI2ME Desktop
 
 1. Ouvrir EPI2ME Desktop
-2. **Workflows** → **Import workflow** → `ndelettre/16StJo`
+2. **Workflows** → **Import workflow** → `ndelettre/ARN16StJo`
 3. Ou **Import Local Workflow** → sélectionner ce dossier
 
 ### En ligne de commande
 
 ```bash
-nextflow run ndelettre/16StJo \
+nextflow run ndelettre/ARN16StJo \
     --fastq_dir /chemin/vers/fastq
 ```
 
