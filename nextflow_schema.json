@@ -1,0 +1,58 @@
+{
+    "$schema": "http://json-schema.org/draft-07/schema",
+    "$id": "https://raw.githubusercontent.com/ndelettre/16StJo/main/nextflow_schema.json",
+    "title": "16StJo pipeline parameters",
+    "description": "Pipeline 16S full-length Nanopore (EMU) - compatible EPI2ME",
+    "type": "object",
+    "definitions": {
+        "input_output_options": {
+            "title": "Entrées / Sorties",
+            "type": "object",
+            "fa_icon": "fas fa-terminal",
+            "description": "Définir les chemins d'entrée du pipeline.",
+            "required": ["fastq_dir"],
+            "properties": {
+                "fastq_dir": {
+                    "type": "string",
+                    "format": "directory-path",
+                    "description": "Dossier contenant les fichiers FASTQ (.fastq, .fq, éventuellement .gz), un fichier par échantillon. Le nom de l'échantillon est le nom du fichier sans l'extension.",
+                    "fa_icon": "fas fa-folder-open"
+                }
+            }
+        },
+        "filtering_options": {
+            "title": "Filtrage des reads",
+            "type": "object",
+            "fa_icon": "fas fa-filter",
+            "description": "Paramètres de filtrage Chopper (16S full-length ≈ 1 500 bp).",
+            "properties": {
+                "min_length": {
+                    "type": "integer",
+                    "description": "Longueur minimale des reads en paires de bases.",
+                    "default": 1200,
+                    "minimum": 1,
+                    "fa_icon": "fas fa-ruler-horizontal"
+                },
+                "max_length": {
+                    "type": "integer",
+                    "description": "Longueur maximale des reads en paires de bases.",
+                    "default": 1800,
+                    "minimum": 1,
+                    "fa_icon": "fas fa-ruler-horizontal"
+                },
+                "min_quality": {
+                    "type": "integer",
+                    "description": "Q-score moyen minimal (Phred) des reads.",
+                    "default": 10,
+                    "minimum": 0,
+                    "maximum": 50,
+                    "fa_icon": "fas fa-signal"
+                }
+            }
+        }
+    },
+    "allOf": [
+        { "$ref": "#/definitions/input_output_options" },
+        { "$ref": "#/definitions/filtering_options" }
+    ]
+}
