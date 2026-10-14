@@ -1,0 +1,8 @@
+# Nextflow
+work/
+.nextflow/
+.nextflow.log*
+
+# Sorties du pipeline
+output/
+results/
