@@ -1,6 +1,6 @@
 {
     "$schema": "http://json-schema.org/draft-07/schema",
-    "$id": "https://raw.githubusercontent.com/ndelettre/ARN16StJo/main/nextflow_schema.json",
+    "$id": "https://raw.githubusercontent.com/ndelettre/arn16stjo/main/nextflow_schema.json",
     "title": "ARN16StJo pipeline parameters",
     "description": "Pipeline 16S full-length Nanopore (EMU) - compatible EPI2ME",
     "type": "object",
