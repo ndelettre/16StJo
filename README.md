@@ -1,4 +1,4 @@
-# 16StJo
+# ARN16StJo
 
 Pipeline Nextflow d'analyse du **16S full-length** séquencé sur **Oxford Nanopore** (R10.4.1), avec classification taxonomique par [EMU](https://github.com/treangenlab/emu) — compatible **EPI2ME Desktop**.
 
@@ -35,13 +35,17 @@ FASTQ ─┬─ NANOSTAT (reads bruts)
 ### Via EPI2ME Desktop
 
 1. Ouvrir EPI2ME Desktop
-2. **Workflows** → **Import workflow** → `ndelettre/16StJo`
+2. **Workflows** → **Import workflow** → `https://github.com/ndelettre/arn16stjo`
 3. Ou **Import Local Workflow** → sélectionner ce dossier
+
+> ⚠️ Le nom du dépôt et `manifest.name` doivent rester **en minuscules** : EPI2ME Desktop
+> cherche le workflow dans un dossier au nom converti en minuscules, alors que `nextflow pull`
+> garde la casse de l'URL. Avec des majuscules, l'import échoue (« Error refreshing workflow config »).
 
 ### En ligne de commande
 
 ```bash
-nextflow run ndelettre/16StJo \
+nextflow run ndelettre/arn16stjo \
     --fastq_dir /chemin/vers/fastq
 ```
 
