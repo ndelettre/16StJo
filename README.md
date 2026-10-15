@@ -2,7 +2,7 @@
 
 Pipeline Nextflow d'analyse du **16S full-length** séquencé sur **Oxford Nanopore** (R10.4.1), avec classification taxonomique par [EMU](https://github.com/treangenlab/emu) — compatible **EPI2ME Desktop**.
 
-> 🚧 Pipeline en cours de développement. Version actuelle : **0.1.0** (étape 1 : contrôle qualité).
+> 🚧 Pipeline en cours de développement. Version actuelle : **0.2.0** (QC, retrait de l'hôte, classification EMU).
 
 ## Description
 
@@ -12,23 +12,50 @@ Le pipeline prend en entrée des reads déjà basecallés et démultiplexés (un
 
 ```
 FASTQ ─┬─ NANOSTAT (reads bruts)
-       └─ CHOPPER (longueur + qualité) ── NANOSTAT (reads filtrés)
+       └─ CHOPPER (longueur + qualité) ─┬─ NANOSTAT (reads filtrés)
+                                        └─ HOST_FILTER (alignement sur l'hôte, reads hôte comptés et retirés)
+                                           └─ EMU_ABUNDANCE ─┬─ EMU_COMBINE (espèce / genre / famille)
+                                                             └─ SPIKE_IN (contrôle interne Zymo)
+
+HOST_INDEX (index du génome hôte, une fois au début) ──→ HOST_FILTER ──→ HOST_INDEX_CLEANUP (suppression de l'index)
 ```
 
-Étapes prévues :
+Étapes :
 
 | Étape | Contenu | Statut |
 |---|---|---|
-| 1 | Squelette + QC : NanoStat → Chopper → NanoStat | ✅ |
-| 2 | Comptage et retrait des reads de l'hôte (minimap2, GRCh38 par défaut) | ⏳ |
-| 3 | Classification EMU (base rrnDB 5.10 + NCBI mars 2026 par défaut) | ⏳ |
-| 4 | Rapport HTML unique (QC, hôte, contrôle interne Zymo, abondances) | ⏳ |
+| 1 | QC : NanoStat → Chopper → NanoStat | ✅ |
+| 2 | Comptage et retrait des reads de l'hôte (minimap2, GRCh38 par défaut) | ✅ |
+| 3 | Classification EMU (base rrnDB 5.10 + NCBI mars 2026 par défaut), contrôle interne Zymo | ✅ |
+| 4 | Rapport HTML unique (QC, hôte, contrôle interne, abondances) | ⏳ |
 | 5 | Mode recherche optionnel (diversité alpha/bêta, export phyloseq) | ⏳ |
 
 ## Prérequis
 
-- [Nextflow](https://www.nextflow.io/) ≥ 22.10.0
+- [Nextflow](https://www.nextflow.io/) ≥ 22.10.0 (EPI2ME Desktop fournit le sien)
 - [Docker](https://www.docker.com/)
+- Génome de l'hôte (GRCh38 par défaut, ~0,9 Go compressé)
+- Base EMU (~180 Mo)
+
+### Téléchargement des bases de données
+
+```bash
+# Génome humain GRCh38 (version "no-alt analysis set", recommandée pour l'alignement)
+sudo mkdir -p /data/host && sudo chown $USER /data/host
+wget -O /data/host/GRCh38.fa.gz \
+    https://ftp.ncbi.nlm.nih.gov/genomes/all/GCA/000/001/405/GCA_000001405.15_GRCh38/seqs_for_alignment_pipelines.ucsc_ids/GCA_000001405.15_GRCh38_no_alt_analysis_set.fna.gz
+
+# Base EMU : rrnDB v5.10 + NCBI mars 2026 (fournie dans le dépôt GitHub d'EMU)
+sudo mkdir -p /data/emu_db && sudo chown $USER /data/emu_db
+cd /data/emu_db
+wget https://github.com/treangenlab/emu/raw/master/emu_database/emu_db_mar2026.zip
+unzip emu_db_mar2026.zip && rm emu_db_mar2026.zip
+# → /data/emu_db/emu_db_mar2026/{species_taxid.fasta, taxonomy.tsv}
+```
+
+Le génome de l'hôte peut être fourni :
+- en **FASTA** : il est indexé une fois au début de chaque run (quelques minutes, ~10-15 Go de RAM). L'index (~7 Go) est écrit dans le dossier de travail de Nextflow, puis **supprimé dès que tous les échantillons sont alignés** ;
+- déjà indexé en **`.mmi`** (`minimap2 -x map-ont -d GRCh38.mmi GRCh38.fa.gz`) : il est utilisé tel quel et n'est jamais supprimé.
 
 ## Installation
 
@@ -46,7 +73,8 @@ FASTQ ─┬─ NANOSTAT (reads bruts)
 
 ```bash
 nextflow run ndelettre/arn16stjo \
-    --fastq_dir /chemin/vers/fastq
+    --fastq_dir /chemin/vers/fastq \
+    --spike_in spike_in_I
 ```
 
 ## Données d'entrée
@@ -71,25 +99,56 @@ Deux fichiers donnant le même nom d'échantillon (ex. `S1.fastq` et `S1.fastq.g
 | `--min_length` | `1200` | Longueur minimale des reads (bp) |
 | `--max_length` | `1800` | Longueur maximale des reads (bp) |
 | `--min_quality` | `10` | Q-score moyen minimal des reads |
+| `--host_reference` | `/data/host/GRCh38.fa.gz` | Génome de l'hôte (FASTA ou `.mmi`) ; vide ou `false` = étape ignorée |
+| `--emu_db` | `/data/emu_db/emu_db_mar2026` | Dossier de la base EMU |
+| `--emu_min_abundance` | `0.0001` | Seuil interne d'EMU (0,01 %) |
+| `--emu_keep_read_assignments` | `false` | Table d'attribution read → espèce |
+| `--emu_output_unclassified` | `false` | FASTQ des reads non classés |
+| `--spike_in` | `aucun` | Contrôle interne : `aucun`, `spike_in_I` (D6320) ou `spike_in_II` (D6321) |
 | `--outdir` | `output` | Dossier des rapports |
-| `--resultsdir` | `results` | Dossier des résultats intermédiaires |
+| `--resultsdir` | `results` | Dossier des résultats |
+
+### Contrôle interne ZymoBIOMICS
+
+| Valeur | Contrôle | Souches attendues |
+|---|---|---|
+| `spike_in_I` | Spike-in Control I (D6320, High Microbial Load) | *Imtechella halotolerans*, *Allobacillus halotolerans* |
+| `spike_in_II` | Spike-in Control II (D6321, Low Microbial Load) | *Truepera radiovictrix*, *I. halotolerans*, *A. halotolerans* |
+
+Ces trois espèces sont présentes dans la base EMU de mars 2026. Le pipeline vérifie au démarrage qu'elles sont dans la base utilisée et affiche un avertissement sinon.
 
 ## Sorties
 
 ```
 results/
 ├── nanostat/
-│   ├── {échantillon}_raw_nanostat.tsv        # QC avant filtrage
-│   └── {échantillon}_filtered_nanostat.tsv   # QC après filtrage
-└── chopper/
-    ├── {échantillon}_filtered.fastq.gz       # reads conservés
-    └── {échantillon}_chopper.log             # "Kept X reads out of Y reads"
+│   ├── {échantillon}_raw_nanostat.tsv          # QC avant filtrage
+│   └── {échantillon}_filtered_nanostat.tsv     # QC après filtrage
+├── chopper/
+│   └── {échantillon}_chopper.log               # "Kept X reads out of Y reads"
+├── host/
+│   └── host_summary.tsv                        # reads hôte par échantillon (nombre et %)
+├── host_removed/
+│   └── {échantillon}_nohost.fastq.gz           # reads filtrés, sans l'hôte (entrée d'EMU)
+└── emu/
+    ├── emu-combined-{species,genus,family}.tsv         # abondances relatives, tous échantillons
+    ├── emu-combined-{species,genus,family}-counts.tsv  # nombres de reads estimés
+    ├── spike_in_counts.tsv                     # reads du contrôle interne par échantillon
+    └── per_sample/
+        ├── {échantillon}_rel-abundance.tsv     # sortie EMU (abondance, lignée, reads estimés)
+        ├── {échantillon}_emu.log
+        ├── {échantillon}_read-assignment-distributions.tsv   # option
+        └── {échantillon}_{unmapped,unclassified_mapped,filtered_mapped}.fastq.gz  # option
 output/
-├── pipeline_report.html                      # ressources utilisées par tâche
-└── pipeline_timeline.html                    # chronologie d'exécution
+├── pipeline_report.html                        # ressources utilisées par tâche
+└── pipeline_timeline.html                      # chronologie d'exécution
 ```
 
-Un échantillon sans read (barcode vide, ou tous les reads écartés par Chopper) n'arrête pas le run : un avertissement est affiché dans le log et ses statistiques NanoStat sont à 0.
+Points à connaître :
+- **Reads hôte** : chaque échantillon est aligné séparément sur l'index du génome (3 alignements en parallèle au maximum, chacun chargeant ~7-8 Go d'index en RAM). Un read est compté comme hôte si son alignement couvre au moins 50 % de sa longueur. L'index construit pendant le run étant supprimé à la fin, une relance avec `-resume` le reconstruit et refait les alignements sur l'hôte.
+- **Lignes non classées** : dans les tables EMU, `unmapped` = reads sans alignement sur la base 16S ; `mapped_filtered` et `mapped_unclassified` = reads alignés mais non attribués. Dans les tables `emu-combined-*`, ces reads sont regroupés sur la ligne sans nom de taxon.
+- **Échantillon sans read** (barcode vide, tout filtré, tout hôte, aucun read 16S) : le run continue, l'échantillon apparaît avec 0 read classé.
+- **Seuils d'affichage** (≥ 20 reads et ≥ 1 %) : ils seront appliqués dans le rapport HTML (étape 4) ; les tables ci-dessus contiennent tous les taxons.
 
 ## Images Docker
 
@@ -99,3 +158,5 @@ Toutes les images sont figées sur une version exacte pour garantir la reproduct
 |---|---|
 | NanoStat | `quay.io/biocontainers/nanostat:1.6.0--pyhdfd78af_0` |
 | Chopper | `quay.io/biocontainers/chopper:0.9.0--hdcf5f25_0` |
+| minimap2 (hôte) | `staphb/minimap2:2.31` |
+| EMU | `quay.io/biocontainers/emu:3.6.2--hdfd78af_0` |

@@ -10,7 +10,9 @@
             "type": "object",
             "fa_icon": "fas fa-terminal",
             "description": "Définir les chemins d'entrée du pipeline.",
-            "required": ["fastq_dir"],
+            "required": [
+                "fastq_dir"
+            ],
             "properties": {
                 "fastq_dir": {
                     "type": "string",
@@ -49,10 +51,92 @@
                     "fa_icon": "fas fa-signal"
                 }
             }
+        },
+        "host_options": {
+            "title": "Reads de l'hôte",
+            "type": "object",
+            "fa_icon": "fas fa-user",
+            "description": "Comptage et retrait des reads de l'hôte avant EMU (minimap2).",
+            "properties": {
+                "host_reference": {
+                    "type": "string",
+                    "format": "file-path",
+                    "description": "Génome de l'hôte : FASTA (.fa, .fasta, .fna, éventuellement .gz) ou index minimap2 (.mmi). GRCh38 par défaut. Laisser vide pour ne pas rechercher de reads hôte.",
+                    "default": "/data/host/GRCh38.fa.gz",
+                    "fa_icon": "fas fa-dna"
+                }
+            }
+        },
+        "emu_options": {
+            "title": "Classification EMU",
+            "type": "object",
+            "fa_icon": "fas fa-bacteria",
+            "description": "Paramètres de la classification taxonomique EMU.",
+            "properties": {
+                "emu_db": {
+                    "type": "string",
+                    "format": "directory-path",
+                    "description": "Dossier de la base EMU (contenant species_taxid.fasta et taxonomy.tsv). Par défaut : rrnDB v5.10 + NCBI mars 2026.",
+                    "default": "/data/emu_db/emu_db_mar2026",
+                    "fa_icon": "fas fa-database"
+                },
+                "emu_min_abundance": {
+                    "type": "number",
+                    "description": "Seuil d'abondance interne d'EMU (0.0001 = 0,01 %). Les seuils d'affichage (reads, %) se règlent dans le rapport.",
+                    "default": 0.0001,
+                    "minimum": 0,
+                    "maximum": 1,
+                    "fa_icon": "fas fa-percentage"
+                },
+                "emu_keep_read_assignments": {
+                    "type": "boolean",
+                    "description": "Produire la table d'attribution de chaque read aux espèces (fichier volumineux).",
+                    "default": false,
+                    "fa_icon": "fas fa-table"
+                },
+                "emu_output_unclassified": {
+                    "type": "boolean",
+                    "description": "Produire les FASTQ des reads non classés par EMU.",
+                    "default": false,
+                    "fa_icon": "fas fa-question-circle"
+                }
+            }
+        },
+        "spike_in_options": {
+            "title": "Contrôle interne",
+            "type": "object",
+            "fa_icon": "fas fa-vial",
+            "description": "Contrôle interne ZymoBIOMICS ajouté aux échantillons.",
+            "properties": {
+                "spike_in": {
+                    "type": "string",
+                    "description": "aucun ; spike_in_I = Spike-in Control I (D6320, High Microbial Load : Imtechella halotolerans, Allobacillus halotolerans) ; spike_in_II = Spike-in Control II (D6321, Low Microbial Load : Truepera radiovictrix, I. halotolerans, A. halotolerans).",
+                    "default": "aucun",
+                    "enum": [
+                        "aucun",
+                        "spike_in_I",
+                        "spike_in_II"
+                    ],
+                    "fa_icon": "fas fa-vial"
+                }
+            }
         }
     },
     "allOf": [
-        { "$ref": "#/definitions/input_output_options" },
-        { "$ref": "#/definitions/filtering_options" }
+        {
+            "$ref": "#/definitions/input_output_options"
+        },
+        {
+            "$ref": "#/definitions/filtering_options"
+        },
+        {
+            "$ref": "#/definitions/host_options"
+        },
+        {
+            "$ref": "#/definitions/emu_options"
+        },
+        {
+            "$ref": "#/definitions/spike_in_options"
+        }
     ]
 }

@@ -20,7 +20,9 @@ process CHOPPER {
     tag "${sample_id}"
     label 'process_low'
 
-    publishDir "${params.resultsdir}/chopper", mode: 'copy'
+    // Seul le log est publié : les reads filtrés contiennent encore l'hôte.
+    // Les reads publiés sont ceux sans l'hôte (results/host_removed/).
+    publishDir "${params.resultsdir}/chopper", mode: 'copy', pattern: "*_chopper.log"
 
     input:
     tuple val(sample_id), path(fastq)
