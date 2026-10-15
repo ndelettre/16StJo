@@ -7,7 +7,8 @@
     WORKFLOW :
        NANOSTAT (reads bruts)
        CHOPPER → NANOSTAT (reads filtrés)
-               → HOST_MAP + HOST_FILTER (comptage et retrait des reads de l'hôte)
+               → HOST_FILTER (alignement sur l'hôte, comptage et retrait des reads)
+                 (index du génome : HOST_INDEX au début, HOST_INDEX_CLEANUP à la fin)
                → EMU_ABUNDANCE → EMU_COMBINE (tables espèce / genre / famille)
                                → SPIKE_IN (reads du contrôle interne Zymo)
 
@@ -26,8 +27,9 @@ nextflow.enable.dsl = 2
 include { NANOSTAT as NANOSTAT_RAW      } from './modules/nanostat.nf' // QC reads bruts
 include { CHOPPER                       } from './modules/chopper.nf'  // Filtrage longueur/qualité
 include { NANOSTAT as NANOSTAT_FILTERED } from './modules/nanostat.nf' // QC reads filtrés
-include { HOST_MAP                      } from './modules/host_map.nf'      // Alignement sur l'hôte
-include { HOST_FILTER                   } from './modules/host_filter.nf'   // Comptage/retrait hôte
+include { HOST_INDEX                    } from './modules/host_index.nf'         // Index du génome hôte
+include { HOST_FILTER                   } from './modules/host_filter.nf'        // Alignement/retrait hôte
+include { HOST_INDEX_CLEANUP            } from './modules/host_index_cleanup.nf' // Suppression de l'index
 include { EMU_ABUNDANCE                 } from './modules/emu_abundance.nf' // Classification EMU
 include { EMU_COMBINE                   } from './modules/emu_combine.nf'   // Tables multi-échantillons
 include { SPIKE_IN                      } from './modules/spike_in.nf'      // Contrôle interne Zymo
@@ -153,19 +155,31 @@ workflow {
     NANOSTAT_FILTERED(CHOPPER.out.reads, "filtered")
 
     // ── Reads de l'hôte : comptage et retrait ─────────────────────────────────
-    // HOST_MAP aligne les reads de TOUS les échantillons en un seul passage
-    // (le génome humain n'est indexé/chargé qu'une fois), puis HOST_FILTER
-    // retire les reads hôte de chaque échantillon.
+    // Le génome de l'hôte est indexé UNE fois au début du run (HOST_INDEX,
+    // en parallèle de Chopper), puis chaque échantillon est aligné séparément
+    // sur cet index (HOST_FILTER). L'index est supprimé dès que tous les
+    // échantillons sont alignés (HOST_INDEX_CLEANUP). Un index .mmi fourni
+    // par l'utilisateur est utilisé tel quel et n'est jamais supprimé.
     //
-    // LEÇON : .collect() rassemble les FASTQ de tous les échantillons en une
-    // seule liste. Comme toutes les entrées de HOST_MAP sont alors des "value
-    // channels", sa sortie host_reads.tsv en est une aussi : elle peut être
-    // réutilisée par HOST_FILTER pour chacun des échantillons.
+    // LEÇON : .first() transforme le channel en "value channel" : l'index
+    // est réutilisé par HOST_FILTER pour chacun des échantillons au lieu
+    // d'être consommé par le premier.
     if (host_reference) {
         ch_host_reference = channel.fromPath(host_reference, checkIfExists: true).first()
-        HOST_MAP(CHOPPER.out.reads.map { _sample_id, reads -> reads }.collect(), ch_host_reference)
-        HOST_FILTER(CHOPPER.out.reads, HOST_MAP.out.hits)
+
+        if (host_reference.endsWith('.mmi')) {
+            ch_host_index = ch_host_reference
+        } else {
+            HOST_INDEX(ch_host_reference)
+            ch_host_index = HOST_INDEX.out.index.first()
+        }
+
+        HOST_FILTER(CHOPPER.out.reads, ch_host_index)
         ch_reads_emu = HOST_FILTER.out.reads
+
+        if (!host_reference.endsWith('.mmi')) {
+            HOST_INDEX_CLEANUP(ch_host_index, HOST_FILTER.out.stats.collect())
+        }
 
         // Table récapitulative : une ligne par échantillon
         HOST_FILTER.out.stats

@@ -13,9 +13,11 @@ Le pipeline prend en entrée des reads déjà basecallés et démultiplexés (un
 ```
 FASTQ ─┬─ NANOSTAT (reads bruts)
        └─ CHOPPER (longueur + qualité) ─┬─ NANOSTAT (reads filtrés)
-                                        └─ HOST_MAP → HOST_FILTER (reads de l'hôte comptés et retirés)
-                                                      └─ EMU_ABUNDANCE ─┬─ EMU_COMBINE (espèce / genre / famille)
-                                                                        └─ SPIKE_IN (contrôle interne Zymo)
+                                        └─ HOST_FILTER (alignement sur l'hôte, reads hôte comptés et retirés)
+                                           └─ EMU_ABUNDANCE ─┬─ EMU_COMBINE (espèce / genre / famille)
+                                                             └─ SPIKE_IN (contrôle interne Zymo)
+
+HOST_INDEX (index du génome hôte, une fois au début) ──→ HOST_FILTER ──→ HOST_INDEX_CLEANUP (suppression de l'index)
 ```
 
 Étapes :
@@ -51,7 +53,9 @@ unzip emu_db_mar2026.zip && rm emu_db_mar2026.zip
 # → /data/emu_db/emu_db_mar2026/{species_taxid.fasta, taxonomy.tsv}
 ```
 
-Le génome de l'hôte peut être fourni en FASTA (indexé en mémoire à chaque run, ~10-15 Go de RAM, quelques minutes, rien n'est écrit sur le disque) ou déjà indexé en `.mmi` (`minimap2 -x map-ont -d GRCh38.mmi GRCh38.fa.gz`, ~7 Go sur le disque).
+Le génome de l'hôte peut être fourni :
+- en **FASTA** : il est indexé une fois au début de chaque run (quelques minutes, ~10-15 Go de RAM). L'index (~7 Go) est écrit dans le dossier de travail de Nextflow, puis **supprimé dès que tous les échantillons sont alignés** ;
+- déjà indexé en **`.mmi`** (`minimap2 -x map-ont -d GRCh38.mmi GRCh38.fa.gz`) : il est utilisé tel quel et n'est jamais supprimé.
 
 ## Installation
 
@@ -141,7 +145,7 @@ output/
 ```
 
 Points à connaître :
-- **Reads hôte** : un read est compté comme hôte si son alignement sur le génome couvre au moins 50 % de sa longueur. Tous les échantillons sont alignés en un seul passage pour n'indexer/charger le génome qu'une fois.
+- **Reads hôte** : chaque échantillon est aligné séparément sur l'index du génome (3 alignements en parallèle au maximum, chacun chargeant ~7-8 Go d'index en RAM). Un read est compté comme hôte si son alignement couvre au moins 50 % de sa longueur. L'index construit pendant le run étant supprimé à la fin, une relance avec `-resume` le reconstruit et refait les alignements sur l'hôte.
 - **Lignes non classées** : dans les tables EMU, `unmapped` = reads sans alignement sur la base 16S ; `mapped_filtered` et `mapped_unclassified` = reads alignés mais non attribués. Dans les tables `emu-combined-*`, ces reads sont regroupés sur la ligne sans nom de taxon.
 - **Échantillon sans read** (barcode vide, tout filtré, tout hôte, aucun read 16S) : le run continue, l'échantillon apparaît avec 0 read classé.
 - **Seuils d'affichage** (≥ 20 reads et ≥ 1 %) : ils seront appliqués dans le rapport HTML (étape 4) ; les tables ci-dessus contiennent tous les taxons.
