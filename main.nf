@@ -1,7 +1,7 @@
 #!/usr/bin/env nextflow
 /*
 ========================================================================================
-    ARN16StJo — PIPELINE 16S FULL-LENGTH NANOPORE (EMU)  v0.2.0
+    ARN16StJo — PIPELINE 16S FULL-LENGTH NANOPORE (EMU)  v0.2.1
     Compatible EPI2ME | Nextflow DSL2
 ========================================================================================
     WORKFLOW :
@@ -9,6 +9,7 @@
        CHOPPER → NANOSTAT (reads filtrés)
                → HOST_FILTER (alignement sur l'hôte, comptage et retrait des reads)
                  (index du génome : HOST_INDEX au début, HOST_INDEX_CLEANUP à la fin)
+               → SUBSAMPLE (au plus --emu_max_reads reads par échantillon)
                → EMU_ABUNDANCE → EMU_COMBINE (tables espèce / genre / famille)
                                → SPIKE_IN (reads du contrôle interne Zymo)
 
@@ -30,6 +31,7 @@ include { NANOSTAT as NANOSTAT_FILTERED } from './modules/nanostat.nf' // QC rea
 include { HOST_INDEX                    } from './modules/host_index.nf'         // Index du génome hôte
 include { HOST_FILTER                   } from './modules/host_filter.nf'        // Alignement/retrait hôte
 include { HOST_INDEX_CLEANUP            } from './modules/host_index_cleanup.nf' // Suppression de l'index
+include { SUBSAMPLE                     } from './modules/subsample.nf'     // Sous-échantillonnage
 include { EMU_ABUNDANCE                 } from './modules/emu_abundance.nf' // Classification EMU
 include { EMU_COMBINE                   } from './modules/emu_combine.nf'   // Tables multi-échantillons
 include { SPIKE_IN                      } from './modules/spike_in.nf'      // Contrôle interne Zymo
@@ -54,7 +56,7 @@ workflow {
     // ── Bannière de démarrage ─────────────────────────────────────────────────
     log.info """
     ╔══════════════════════════════════════════════════════════╗
-    ║     ARN16StJo - 16S FULL-LENGTH NANOPORE (EMU)  v0.2.0   ║
+    ║     ARN16StJo - 16S FULL-LENGTH NANOPORE (EMU)  v0.2.1   ║
     ╚══════════════════════════════════════════════════════════╝
       Dossier FASTQ   : ${params.fastq_dir}
       Dossier sortie  : ${params.outdir}
@@ -62,6 +64,7 @@ workflow {
       Qualité min.    : Q${params.min_quality}
       Génome hôte     : ${host_reference ?: 'aucun (étape ignorée)'}
       Base EMU        : ${params.emu_db}
+      Reads max. EMU  : ${params.emu_max_reads ?: 'tous'}
       Contrôle interne: ${params.spike_in}
     ──────────────────────────────────────────────────────────
     """.stripIndent()
@@ -78,6 +81,9 @@ workflow {
     }
     if (host_reference && !file(host_reference).exists()) {
         error "ERREUR : génome hôte introuvable : ${host_reference}\n(voir le README pour le télécharger, ou laisser --host_reference vide pour ignorer l'étape)."
+    }
+    if (!(params.emu_max_reads instanceof Integer) || params.emu_max_reads < 0) {
+        error "ERREUR : --emu_max_reads doit être un entier ≥ 0 (0 = pas de sous-échantillonnage ; reçu : '${params.emu_max_reads}')."
     }
     ['species_taxid.fasta', 'taxonomy.tsv'].each { db_file ->
         if (!file("${params.emu_db}/${db_file}").exists()) {
@@ -191,9 +197,19 @@ workflow {
         ch_reads_emu = CHOPPER.out.reads
     }
 
+    // ── Sous-échantillonnage avant EMU ────────────────────────────────────────
+    // EMU est très lent au-delà de quelques dizaines de milliers de reads :
+    // on en tire au hasard au plus --emu_max_reads par échantillon (0 = tous).
+    SUBSAMPLE(ch_reads_emu)
+
+    SUBSAMPLE.out.stats
+        .map { _sample_id, stats -> stats }
+        .collectFile(name: 'emu_reads_summary.tsv', keepHeader: true, skip: 1,
+                     sort: { stats -> stats.name }, storeDir: "${params.resultsdir}/emu")
+
     // ── Classification taxonomique EMU ────────────────────────────────────────
     ch_emu_db = channel.fromPath(params.emu_db, type: 'dir', checkIfExists: true).first()
-    EMU_ABUNDANCE(ch_reads_emu, ch_emu_db)
+    EMU_ABUNDANCE(SUBSAMPLE.out.reads, ch_emu_db)
 
     ch_abundance_tables = EMU_ABUNDANCE.out.abundance
         .map { _sample_id, table -> table }

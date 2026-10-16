@@ -80,6 +80,13 @@
                     "default": "/data/emu_db/emu_db_mar2026",
                     "fa_icon": "fas fa-database"
                 },
+                "emu_max_reads": {
+                    "type": "integer",
+                    "description": "Nombre maximal de reads analysés par EMU pour chaque échantillon, tirés au hasard (graine fixe, reproductible). EMU devient très lent au-delà de quelques dizaines de milliers de reads. 0 = tous les reads.",
+                    "default": 20000,
+                    "minimum": 0,
+                    "fa_icon": "fas fa-random"
+                },
                 "emu_min_abundance": {
                     "type": "number",
                     "description": "Seuil d'abondance interne d'EMU (0.0001 = 0,01 %). Les seuils d'affichage (reads, %) se règlent dans le rapport.",

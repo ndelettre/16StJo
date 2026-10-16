@@ -2,7 +2,7 @@
 
 Pipeline Nextflow d'analyse du **16S full-length** séquencé sur **Oxford Nanopore** (R10.4.1), avec classification taxonomique par [EMU](https://github.com/treangenlab/emu) — compatible **EPI2ME Desktop**.
 
-> 🚧 Pipeline en cours de développement. Version actuelle : **0.2.0** (QC, retrait de l'hôte, classification EMU).
+> 🚧 Pipeline en cours de développement. Version actuelle : **0.2.1** (QC, retrait de l'hôte, classification EMU).
 
 ## Description
 
@@ -14,7 +14,7 @@ Le pipeline prend en entrée des reads déjà basecallés et démultiplexés (un
 FASTQ ─┬─ NANOSTAT (reads bruts)
        └─ CHOPPER (longueur + qualité) ─┬─ NANOSTAT (reads filtrés)
                                         └─ HOST_FILTER (alignement sur l'hôte, reads hôte comptés et retirés)
-                                           └─ EMU_ABUNDANCE ─┬─ EMU_COMBINE (espèce / genre / famille)
+                                           └─ SUBSAMPLE (≤ 20 000 reads) → EMU_ABUNDANCE ─┬─ EMU_COMBINE (espèce / genre / famille)
                                                              └─ SPIKE_IN (contrôle interne Zymo)
 
 HOST_INDEX (index du génome hôte, une fois au début) ──→ HOST_FILTER ──→ HOST_INDEX_CLEANUP (suppression de l'index)
@@ -101,6 +101,7 @@ Deux fichiers donnant le même nom d'échantillon (ex. `S1.fastq` et `S1.fastq.g
 | `--min_quality` | `10` | Q-score moyen minimal des reads |
 | `--host_reference` | `/data/host/GRCh38.fa.gz` | Génome de l'hôte (FASTA ou `.mmi`) ; vide ou `false` = étape ignorée |
 | `--emu_db` | `/data/emu_db/emu_db_mar2026` | Dossier de la base EMU |
+| `--emu_max_reads` | `20000` | Reads analysés par EMU au maximum, tirés au hasard (0 = tous) |
 | `--emu_min_abundance` | `0.0001` | Seuil interne d'EMU (0,01 %) |
 | `--emu_keep_read_assignments` | `false` | Table d'attribution read → espèce |
 | `--emu_output_unclassified` | `false` | FASTQ des reads non classés |
@@ -133,6 +134,7 @@ results/
 └── emu/
     ├── emu-combined-{species,genus,family}.tsv         # abondances relatives, tous échantillons
     ├── emu-combined-{species,genus,family}-counts.tsv  # nombres de reads estimés
+    ├── emu_reads_summary.tsv                   # reads sans l'hôte / reads analysés par EMU
     ├── spike_in_counts.tsv                     # reads du contrôle interne par échantillon
     └── per_sample/
         ├── {échantillon}_rel-abundance.tsv     # sortie EMU (abondance, lignée, reads estimés)
@@ -148,6 +150,7 @@ Points à connaître :
 - **Reads hôte** : chaque échantillon est aligné séparément sur l'index du génome (3 alignements en parallèle au maximum, chacun chargeant ~7-8 Go d'index en RAM). Un read est compté comme hôte si son alignement couvre au moins 50 % de sa longueur. L'index construit pendant le run étant supprimé à la fin, une relance avec `-resume` le reconstruit et refait les alignements sur l'hôte.
 - **Lignes non classées** : dans les tables EMU, `unmapped` = reads sans alignement sur la base 16S ; `mapped_filtered` et `mapped_unclassified` = reads alignés mais non attribués. Dans les tables `emu-combined-*`, ces reads sont regroupés sur la ligne sans nom de taxon.
 - **Échantillon sans read** (barcode vide, tout filtré, tout hôte, aucun read 16S) : le run continue, l'échantillon apparaît avec 0 read classé.
+- **Sous-échantillonnage** : EMU devient très lent au-delà de quelques dizaines de milliers de reads (la base 2026 est très redondante : ~30 reads/s avec 4 cœurs, plus de 12 h pour 1,4 million de reads). Au plus `--emu_max_reads` reads (20 000 par défaut) sont tirés au hasard par échantillon, avec une graine fixe (résultats reproductibles). Avec 20 000 reads, un taxon à 1 % représente ~200 reads. Les nombres de reads d'EMU et du contrôle interne portent sur ces reads analysés ; `emu_reads_summary.tsv` donne, pour chaque échantillon, le nombre de reads avant et après sous-échantillonnage.
 - **Seuils d'affichage** (≥ 20 reads et ≥ 1 %) : ils seront appliqués dans le rapport HTML (étape 4) ; les tables ci-dessus contiennent tous les taxons.
 
 ## Images Docker
