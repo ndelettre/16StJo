@@ -2,7 +2,7 @@
 
 Pipeline Nextflow d'analyse du **16S full-length** séquencé sur **Oxford Nanopore** (R10.4.1), avec classification taxonomique par [EMU](https://github.com/treangenlab/emu) — compatible **EPI2ME Desktop**.
 
-> 🚧 Pipeline en cours de développement. Version actuelle : **0.2.2** (QC, retrait de l'hôte, classification EMU).
+> 🚧 Pipeline en cours de développement. Version actuelle : **0.2.3** (QC, retrait de l'hôte, classification EMU).
 
 ## Description
 
@@ -147,7 +147,7 @@ output/
 ```
 
 Points à connaître :
-- **Reads hôte** : chaque échantillon est aligné séparément sur l'index du génome (3 alignements en parallèle au maximum, chacun chargeant ~7-8 Go d'index en RAM). Un read est compté comme hôte si son alignement couvre au moins 50 % de sa longueur. L'index construit pendant le run étant supprimé à la fin, une relance avec `-resume` le reconstruit et refait les alignements sur l'hôte.
+- **Reads hôte** : chaque échantillon est aligné séparément sur l'index du génome (10 cœurs par alignement, 2 en parallèle, chacun chargeant ~7-8 Go d'index en RAM). Un read est compté comme hôte si son alignement couvre au moins 50 % de sa longueur. L'index construit pendant le run étant supprimé à la fin, une relance avec `-resume` le reconstruit et refait les alignements sur l'hôte.
 - **Lignes non classées** : dans les tables EMU, `unmapped` = reads sans alignement sur la base 16S ; `mapped_filtered` et `mapped_unclassified` = reads alignés mais non attribués. Dans les tables `emu-combined-*`, ces reads sont regroupés sur la ligne sans nom de taxon.
 - **Échantillon sans read** (barcode vide, tout filtré, tout hôte, aucun read 16S) : le run continue, l'échantillon apparaît avec 0 read classé.
 - **Sous-échantillonnage** : EMU devient très lent au-delà de quelques dizaines de milliers de reads (la base 2026 est très redondante : ~30 reads/s avec 4 cœurs, plus de 12 h pour 1,4 million de reads). Au plus `--emu_max_reads` reads (20 000 par défaut) sont tirés au hasard par échantillon, avec une graine fixe (résultats reproductibles). Avec 20 000 reads, un taxon à 1 % représente ~200 reads. Les nombres de reads d'EMU et du contrôle interne portent sur ces reads analysés ; `emu_reads_summary.tsv` donne, pour chaque échantillon, le nombre de reads avant et après sous-échantillonnage.
