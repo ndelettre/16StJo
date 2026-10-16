@@ -2,7 +2,7 @@
 
 Pipeline Nextflow d'analyse du **16S full-length** séquencé sur **Oxford Nanopore** (R10.4.1), avec classification taxonomique par [EMU](https://github.com/treangenlab/emu) — compatible **EPI2ME Desktop**.
 
-> 🚧 Pipeline en cours de développement. Version actuelle : **0.2.1** (QC, retrait de l'hôte, classification EMU).
+> 🚧 Pipeline en cours de développement. Version actuelle : **0.2.2** (QC, retrait de l'hôte, classification EMU).
 
 ## Description
 

@@ -1,7 +1,7 @@
 #!/usr/bin/env nextflow
 /*
 ========================================================================================
-    ARN16StJo — PIPELINE 16S FULL-LENGTH NANOPORE (EMU)  v0.2.1
+    ARN16StJo — PIPELINE 16S FULL-LENGTH NANOPORE (EMU)  v0.2.2
     Compatible EPI2ME | Nextflow DSL2
 ========================================================================================
     WORKFLOW :
@@ -56,7 +56,7 @@ workflow {
     // ── Bannière de démarrage ─────────────────────────────────────────────────
     log.info """
     ╔══════════════════════════════════════════════════════════╗
-    ║     ARN16StJo - 16S FULL-LENGTH NANOPORE (EMU)  v0.2.1   ║
+    ║     ARN16StJo - 16S FULL-LENGTH NANOPORE (EMU)  v0.2.2   ║
     ╚══════════════════════════════════════════════════════════╝
       Dossier FASTQ   : ${params.fastq_dir}
       Dossier sortie  : ${params.outdir}
